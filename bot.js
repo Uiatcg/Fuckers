@@ -5,57 +5,89 @@ const botOptions = {
   host: 'themc.mcsh.io',
   port: 12802,
   username: 'Gaming92hfskjdf',
-  version: '1.20'  // Adjust version as needed for the server
+  version: false,  // Auto-detect server version
+  hideErrors: false
 };
 
-// Create the bot
-const bot = mineflayer.createBot(botOptions);
+let bot;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 10;
+const reconnectDelay = 5000; // 5 seconds
 
-// Event: Bot spawned in the world
-bot.on('spawn', () => {
-  console.log('✓ Bot spawned successfully!');
-  console.log(`Bot username: ${bot.username}`);
-  console.log(`Bot is at coordinates: X=${bot.entity.position.x}, Y=${bot.entity.position.y}, Z=${bot.entity.position.z}`);
-});
+function createBot() {
+  console.log(`[${new Date().toISOString()}] Attempting to connect... (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+  
+  bot = mineflayer.createBot(botOptions);
 
-// Event: Chat message received
-bot.on('chat', (username, message) => {
-  if (username === bot.username) return;
-  console.log(`[${username}]: ${message}`);
-});
+  // Event: Bot spawned in the world
+  bot.on('spawn', () => {
+    reconnectAttempts = 0;
+    console.log(`[${new Date().toISOString()}] ✓ Bot spawned successfully!`);
+    console.log(`Bot username: ${bot.username}`);
+    console.log(`Bot is at coordinates: X=${Math.round(bot.entity.position.x)}, Y=${Math.round(bot.entity.position.y)}, Z=${Math.round(bot.entity.position.z)}`);
+  });
 
-// Event: Bot dies
-bot.on('death', () => {
-  console.log('Bot died! Respawning...');
-});
+  // Event: Chat message received
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return;
+    console.log(`[CHAT] ${username}: ${message}`);
+  });
 
-// Event: Error handling
-bot.on('error', (err) => {
-  console.error('Error:', err);
-});
+  // Event: Bot dies
+  bot.on('death', () => {
+    console.log(`[${new Date().toISOString()}] Bot died! Respawning...`);
+  });
 
-// Event: End (disconnected)
-bot.on('end', () => {
-  console.log('Bot disconnected from server');
-});
+  // Event: Error handling
+  bot.on('error', (err) => {
+    console.error(`[${new Date().toISOString()}] Error:`, err.message);
+  });
 
-// Event: Login (successful connection)
-bot.on('login', () => {
-  console.log('✓ Successfully logged in!');
-});
+  // Event: End (disconnected)
+  bot.on('end', (reason) => {
+    console.log(`[${new Date().toISOString()}] Bot disconnected: ${reason}`);
+    
+    if (reconnectAttempts < maxReconnectAttempts) {
+      reconnectAttempts++;
+      console.log(`[${new Date().toISOString()}] Reconnecting in ${reconnectDelay / 1000} seconds...`);
+      setTimeout(createBot, reconnectDelay);
+    } else {
+      console.error(`[${new Date().toISOString()}] Max reconnection attempts reached. Stopping bot.`);
+      process.exit(1);
+    }
+  });
 
-// Keep the bot alive
-setInterval(() => {
-  if (bot.entity) {
-    // Basic keep-alive: look around occasionally
-    const rotation = Math.random() * Math.PI * 2;
-    bot.look(rotation, 0);
-  }
-}, 30000);
+  // Event: Login (successful connection)
+  bot.on('login', () => {
+    console.log(`[${new Date().toISOString()}] ✓ Successfully logged in!`);
+  });
+
+  // Keep the bot alive
+  setInterval(() => {
+    if (bot && bot.entity) {
+      // Basic keep-alive: rotate view
+      const rotation = Math.random() * Math.PI * 2;
+      bot.look(rotation, 0);
+    }
+  }, 30000);
+}
+
+// Start the bot
+createBot();
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('Shutting down bot gracefully...');
-  bot.quit();
+  console.log(`\n[${new Date().toISOString()}] Shutting down bot gracefully...`);
+  if (bot) {
+    bot.quit();
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log(`\n[${new Date().toISOString()}] SIGTERM received, shutting down...`);
+  if (bot) {
+    bot.quit();
+  }
   process.exit(0);
 });
