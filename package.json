@@ -1,0 +1,19 @@
+{
+  "name": "minecraft-bot",
+  "version": "1.0.0",
+  "description": "Minecraft bot for themc.mcsh.io server",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "keywords": ["minecraft", "bot"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mineflayer": "^4.13.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
